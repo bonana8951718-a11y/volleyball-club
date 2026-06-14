@@ -113,6 +113,24 @@
             border-radius: 20px;
             margin-left: 8px;
         }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .spinner {
+            background: white;
+            padding: 20px 40px;
+            border-radius: 60px;
+            font-weight: bold;
+        }
 
         .page {
             display: none;
@@ -260,9 +278,6 @@
             border-radius: 40px;
             font-weight: bold;
             cursor: pointer;
-        }
-        .add-match-btn:hover {
-            background: #4cae4c;
         }
         .matches-list {
             display: flex;
@@ -575,11 +590,15 @@
         </div>
         <div class="player-stats-card" id="statsCard"></div>
     </div>
-    <footer>👥 Просмотр доступен всем. Редактировать могут только игроки (под своим логином) и глава клуба.</footer>
+    <footer>👥 Просмотр доступен всем. Редактировать могут только игроки (под своим логином) и глава клуба. Данные синхронизируются через Google Таблицу.</footer>
 </div>
 
 <script>
-    // ======================== ИГРОКИ (ОБНОВЛЁННЫЕ: 6-й игрок - Молдованов Максим Александрович) ========================
+    // ======================== НАСТРОЙКИ ========================
+    // ВАШ URL ВЕБ-ПРИЛОЖЕНИЯ GOOGLE APPS SCRIPT
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyzWZ1ENy5Xoxsj72Va7BWbjJJ3J4bo4zyXR9D8klK4xlmPVhSQfJW78BunrKs/exec';
+    
+    // ======================== ИГРОКИ ========================
     const USERS = {
         "admin": { password: "KorolevAdmin2026", role: "admin", name: "Глава клуба", playerId: null },
         "rabatov_bogdan": { password: "pass1234", role: "player", name: "Рабатов Богдан Денисович", playerId: "player_1" },
@@ -611,59 +630,113 @@
         { id: "player_12", name: "Фёдорова Дарья Андреевна" }
     ];
 
-    const STATS_KEY = 'volley_stats_v8';
-    const PROFILE_KEY = 'volley_profiles_v8';
-    const MATCHES_KEY = 'volley_matches_v3';
-
-    function getDefaultStats() {
-        return { serves: 0, passes: 0, receives: 0, spikes: 0 };
-    }
-
-    function getDefaultProfile() {
-        return { avatar: null, birthDate: "", age: "", height: "", gender: "" };
-    }
-
-    function loadStats() {
-        const stored = localStorage.getItem(STATS_KEY);
-        if (stored) return JSON.parse(stored);
-        const initial = {};
-        teamPlayers.forEach(p => { initial[p.id] = getDefaultStats(); });
-        return initial;
-    }
-
-    function loadProfiles() {
-        const stored = localStorage.getItem(PROFILE_KEY);
-        if (stored) return JSON.parse(stored);
-        const initial = {};
-        teamPlayers.forEach(p => { initial[p.id] = getDefaultProfile(); });
-        return initial;
-    }
-
-    function loadMatches() {
-        const stored = localStorage.getItem(MATCHES_KEY);
-        if (stored) return JSON.parse(stored);
-        return [
-            { id: "1", opponent: "Щёлково", ourScore: 2, opponentScore: 3, date: "10.06.2025" }
-        ];
-    }
-
-    let allStats = loadStats();
-    let allProfiles = loadProfiles();
-    let allMatches = loadMatches();
-
-    function persistStats() { localStorage.setItem(STATS_KEY, JSON.stringify(allStats)); }
-    function persistProfiles() { localStorage.setItem(PROFILE_KEY, JSON.stringify(allProfiles)); }
-    function persistMatches() { localStorage.setItem(MATCHES_KEY, JSON.stringify(allMatches)); }
-
+    // Глобальные переменные для данных
+    let allStats = {};
+    let allProfiles = {};
+    let allMatches = [];
     let currentUser = null;
-    function saveSession() { sessionStorage.setItem('volleyUserFinal', JSON.stringify(currentUser)); }
-    function loadSession() {
-        const saved = sessionStorage.getItem('volleyUserFinal');
-        if (saved) { try { currentUser = JSON.parse(saved); return true; } catch(e) {} }
-        return false;
-    }
-    function clearSession() { sessionStorage.removeItem('volleyUserFinal'); currentUser = null; }
+    let currentPlayerForStats = null;
+    let isLoading = false;
 
+    // Функции для работы с Google Sheets
+    async function fetchFromAPI(action) {
+        try {
+            const url = `${GOOGLE_SCRIPT_URL}?action=${action}&t=${Date.now()}`;
+            const response = await fetch(url);
+            return await response.json();
+        } catch (error) {
+            console.error('Ошибка загрузки:', error);
+            return null;
+        }
+    }
+
+    async function postToAPI(action, data) {
+        try {
+            const formData = new FormData();
+            formData.append('action', action);
+            formData.append('data', JSON.stringify(data));
+            const response = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
+            return await response.json();
+        } catch (error) {
+            console.error('Ошибка сохранения:', error);
+            return null;
+        }
+    }
+
+    async function loadAllData() {
+        showLoading(true);
+        try {
+            const [stats, profiles, matches] = await Promise.all([
+                fetchFromAPI('getStats'),
+                fetchFromAPI('getProfiles'),
+                fetchFromAPI('getMatches')
+            ]);
+            if (stats) allStats = stats;
+            if (profiles) allProfiles = profiles;
+            if (matches) allMatches = matches;
+        } catch (error) {
+            console.error('Ошибка загрузки данных:', error);
+        }
+        showLoading(false);
+        refreshCurrentPage();
+    }
+
+    async function saveStats(statsData) {
+        showLoading(true);
+        const result = await postToAPI('saveStats', statsData);
+        if (result && result.success) {
+            await loadAllData();
+        }
+        showLoading(false);
+        return result;
+    }
+
+    async function saveProfiles(profilesData) {
+        showLoading(true);
+        const result = await postToAPI('saveProfiles', profilesData);
+        if (result && result.success) {
+            await loadAllData();
+        }
+        showLoading(false);
+        return result;
+    }
+
+    async function saveMatches(matchesData) {
+        showLoading(true);
+        const result = await postToAPI('saveMatches', matchesData);
+        if (result && result.success) {
+            await loadAllData();
+        }
+        showLoading(false);
+        return result;
+    }
+
+    function showLoading(show) {
+        let overlay = document.getElementById('loadingOverlay');
+        if (show && !overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'loadingOverlay';
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = '<div class="spinner">⏳ Синхронизация...</div>';
+            document.body.appendChild(overlay);
+        } else if (!show && overlay) {
+            overlay.remove();
+        }
+    }
+
+    function refreshCurrentPage() {
+        const active = getActivePageId();
+        if (active === 'rosterPage') showRosterPage();
+        else if (active === 'matchesPage') showMatchesPage();
+        else if (active === 'statsPage' && currentPlayerForStats) {
+            const isAdmin = currentUser && currentUser.role === 'admin';
+            const isOwner = (currentUser && currentUser.role === 'player' && currentUser.playerId === currentPlayerForStats.id);
+            const canEdit = isAdmin || isOwner;
+            renderFullProfile(currentPlayerForStats, canEdit, isAdmin, isOwner);
+        } else if (active === 'homePage') showHomePage();
+    }
+
+    // Аутентификация
     function renderAuthArea() {
         const authArea = document.getElementById('authArea');
         if (currentUser) {
@@ -703,14 +776,7 @@
                 saveSession();
                 modal.remove();
                 renderAuthArea();
-                const active = getActivePageId();
-                if (active === 'statsPage' && window.currentPlayerForStats) {
-                    showStatsPage(window.currentPlayerForStats);
-                } else if (active === 'rosterPage') {
-                    showRosterPage();
-                } else if (active === 'matchesPage') {
-                    showMatchesPage();
-                }
+                loadAllData();
             } else {
                 document.getElementById('loginError').innerText = 'Неверный логин или пароль';
             }
@@ -721,6 +787,15 @@
         document.getElementById('passwordInput')?.addEventListener('keypress', e => { if(e.key === 'Enter') submit(); });
     }
 
+    function saveSession() { sessionStorage.setItem('volleyUserSync', JSON.stringify(currentUser)); }
+    function loadSession() {
+        const saved = sessionStorage.getItem('volleyUserSync');
+        if (saved) { try { currentUser = JSON.parse(saved); return true; } catch(e) {} }
+        return false;
+    }
+    function clearSession() { sessionStorage.removeItem('volleyUserSync'); currentUser = null; }
+
+    // Страницы
     function showHomePage() {
         setActivePage('homePage');
         const previewContainer = document.getElementById('previewPlayersList');
@@ -746,7 +821,7 @@
         const container = document.getElementById('rosterPlayersList');
         container.innerHTML = '';
         teamPlayers.forEach(player => {
-            const stats = allStats[player.id] || getDefaultStats();
+            const stats = allStats[player.id] || { serves: 0, passes: 0, receives: 0, spikes: 0 };
             const statsShort = `🏐П:${stats.serves} | 🎯Па:${stats.passes} | 🛡️Пр:${stats.receives} | ⚡Н:${stats.spikes}`;
             const card = document.createElement('div');
             card.className = 'player-card';
@@ -772,7 +847,7 @@
 
     function renderMatchesList(isAdmin) {
         const container = document.getElementById('matchesList');
-        if (allMatches.length === 0) {
+        if (!allMatches || allMatches.length === 0) {
             container.innerHTML = '<div class="no-matches">📋 Пока нет сыгранных матчей</div>';
             return;
         }
@@ -807,12 +882,11 @@
                 });
             });
             document.querySelectorAll('.delete-match-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
+                btn.addEventListener('click', async (e) => {
                     const id = btn.getAttribute('data-id');
                     if (confirm('Удалить матч?')) {
                         allMatches = allMatches.filter(m => m.id !== id);
-                        persistMatches();
-                        renderMatchesList(true);
+                        await saveMatches(allMatches);
                     }
                 });
             });
@@ -837,7 +911,7 @@
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         const modal = document.getElementById('matchModal');
         
-        const save = () => {
+        const save = async () => {
             const opponent = document.getElementById('matchOpponent').value.trim();
             const ourScore = parseInt(document.getElementById('matchOurScore').value, 10);
             const opponentScore = parseInt(document.getElementById('matchOpponentScore').value, 10);
@@ -858,16 +932,14 @@
                 const newId = Date.now().toString();
                 allMatches.push({ id: newId, opponent, ourScore, opponentScore, date });
             }
-            persistMatches();
+            await saveMatches(allMatches);
             modal.remove();
-            showMatchesPage();
         };
         
         document.getElementById('saveMatchBtn')?.addEventListener('click', save);
         document.getElementById('closeMatchModal')?.addEventListener('click', () => modal.remove());
     }
 
-    // Функции для статистики игроков
     function parseDateDMY(dateStr) {
         if (!dateStr) return null;
         const parts = dateStr.split('.');
@@ -890,8 +962,6 @@
         return age >= 0 ? age : null;
     }
 
-    let currentPlayerForStats = null;
-
     function showStatsPage(player) {
         currentPlayerForStats = player;
         const isAdmin = currentUser && currentUser.role === 'admin';
@@ -903,8 +973,8 @@
     }
 
     function renderFullProfile(player, canEdit, isAdmin, isOwner) {
-        const stats = allStats[player.id] || getDefaultStats();
-        const profile = allProfiles[player.id] || getDefaultProfile();
+        const stats = allStats[player.id] || { serves: 0, passes: 0, receives: 0, spikes: 0 };
+        const profile = allProfiles[player.id] || { avatar: null, birthDate: "", age: "", height: "", gender: "" };
         const container = document.getElementById('statsCard');
         
         let birthDisplay = profile.birthDate || 'не указана';
@@ -913,9 +983,6 @@
             const calcAge = calculateAgeFromDMY(profile.birthDate);
             if (calcAge !== null) ageDisplay = calcAge + ' лет';
             else ageDisplay = '—';
-        } else if (!profile.age && profile.birthDate) {
-            const calcAge = calculateAgeFromDMY(profile.birthDate);
-            ageDisplay = calcAge !== null ? calcAge + ' лет' : '—';
         } else if (!profile.age) {
             ageDisplay = '—';
         }
@@ -940,7 +1007,7 @@
             <div class="stat-row"><div class="stat-label">🛡️ Приём</div><div class="stat-value" id="receivesVal">${stats.receives}</div>${canEdit ? `<div class="stat-buttons"><button class="stat-btn plus" data-type="receives" data-delta="1">+1</button><button class="stat-btn minus" data-type="receives" data-delta="-1">-1</button></div>` : ''}</div>
             <div class="stat-row"><div class="stat-label">⚡ Нападение</div><div class="stat-value" id="spikesVal">${stats.spikes}</div>${canEdit ? `<div class="stat-buttons"><button class="stat-btn plus" data-type="spikes" data-delta="1">+1</button><button class="stat-btn minus" data-type="spikes" data-delta="-1">-1</button></div>` : ''}</div>
             ${canEdit ? `<button class="save-stats-btn" id="saveStatsBtn">💾 Сохранить статистику</button>` : ''}
-            <div class="info-note">${canEdit ? '* Вы можете редактировать фото, дату рождения, рост, пол и статистику.' : '* Войдите под своим логином или как глава клуба для редактирования.'}</div>
+            <div class="info-note">${canEdit ? '* Вы можете редактировать фото, дату рождения, рост, пол и статистику. Все изменения синхронизируются.' : '* Войдите под своим логином или как глава клуба для редактирования.'}</div>
         `;
         
         if (canEdit) {
@@ -952,9 +1019,9 @@
                     const file = e.target.files[0];
                     if (file) {
                         const reader = new FileReader();
-                        reader.onload = function(ev) {
+                        reader.onload = async function(ev) {
                             allProfiles[player.id] = { ...allProfiles[player.id], avatar: ev.target.result };
-                            persistProfiles();
+                            await saveProfiles(allProfiles);
                             renderFullProfile(player, canEdit, isAdmin, isOwner);
                         };
                         reader.readAsDataURL(file);
@@ -963,7 +1030,7 @@
             }
             
             document.querySelectorAll('.edit-personal-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
+                btn.addEventListener('click', async (e) => {
                     const field = btn.getAttribute('data-field');
                     if (field === 'birthDate') {
                         let newVal = prompt('Введите дату рождения в формате ДД.ММ.ГГГГ (например, 15.06.1995):', profile.birthDate || '');
@@ -971,7 +1038,7 @@
                             const age = calculateAgeFromDMY(newVal);
                             const ageString = age !== null ? age + ' лет' : '—';
                             allProfiles[player.id] = { ...allProfiles[player.id], birthDate: newVal, age: ageString };
-                            persistProfiles();
+                            await saveProfiles(allProfiles);
                             renderFullProfile(player, canEdit, isAdmin, isOwner);
                         } else if (newVal) {
                             alert('Неверный формат. Используйте ДД.ММ.ГГГГ, например: 15.06.1995');
@@ -980,7 +1047,7 @@
                         let newHeight = prompt('Введите рост в сантиметрах (только цифры):', profile.height || '');
                         if (newHeight && !isNaN(parseInt(newHeight))) {
                             allProfiles[player.id] = { ...allProfiles[player.id], height: parseInt(newHeight) };
-                            persistProfiles();
+                            await saveProfiles(allProfiles);
                             renderFullProfile(player, canEdit, isAdmin, isOwner);
                         } else if (newHeight) alert('Введите число');
                     } else if (field === 'gender') {
@@ -1001,10 +1068,10 @@
                         oldBtn.style.display = 'none';
                         const saveBtn = document.getElementById('saveGenderBtn');
                         if (saveBtn) {
-                            saveBtn.onclick = () => {
+                            saveBtn.onclick = async () => {
                                 const selected = document.getElementById('genderSelect').value;
                                 allProfiles[player.id] = { ...allProfiles[player.id], gender: selected };
-                                persistProfiles();
+                                await saveProfiles(allProfiles);
                                 renderFullProfile(player, canEdit, isAdmin, isOwner);
                             };
                         }
@@ -1038,10 +1105,10 @@
             });
             const saveBtn = document.getElementById('saveStatsBtn');
             if (saveBtn) {
-                saveBtn.addEventListener('click', () => {
-                    allStats[player.id] = { serves, passes, receives, spikes };
-                    persistStats();
-                    alert('Статистика сохранена!');
+                saveBtn.addEventListener('click', async () => {
+                    const newStats = { ...allStats };
+                    newStats[player.id] = { serves, passes, receives, spikes };
+                    await saveStats(newStats);
                     if (getActivePageId() === 'rosterPage') showRosterPage();
                 });
             }
@@ -1069,9 +1136,10 @@
     document.getElementById('backToHomeFromMatches')?.addEventListener('click', showHomePage);
     document.getElementById('backToRosterFromStats')?.addEventListener('click', () => showRosterPage());
 
+    // Запуск
     if (loadSession()) renderAuthArea();
     else renderAuthArea();
-    showHomePage();
+    loadAllData();
 </script>
 </body>
 </html>
