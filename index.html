@@ -113,6 +113,24 @@
             border-radius: 20px;
             margin-left: 8px;
         }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .spinner {
+            background: white;
+            padding: 20px 40px;
+            border-radius: 60px;
+            font-weight: bold;
+        }
 
         .page {
             display: none;
@@ -572,10 +590,14 @@
         </div>
         <div class="player-stats-card" id="statsCard"></div>
     </div>
-    <footer>👥 Просмотр доступен всем. Редактировать могут только игроки (под своим логином) и глава клуба.</footer>
+    <footer>👥 Просмотр доступен всем. Редактировать могут только игроки (под своим логином) и глава клуба. Данные синхронизируются через Supabase.</footer>
 </div>
 
 <script>
+    // ======================== НАСТРОЙКИ SUPABASE ========================
+    const SUPABASE_URL = 'https://vtignavggxmmgaicyvpu.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0aWduYXZnZ3htbWdhaWN5dnB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NDQyNzYsImV4cCI6MjA5NzEyMDI3Nn0.IvHtEN0D4vDS73q_zXBrlckY_uOcBEWZmREvk28Rsvk';
+
     // ======================== ИГРОКИ ========================
     const USERS = {
         "admin": { password: "KorolevAdmin2026", role: "admin", name: "Глава клуба", playerId: null },
@@ -608,59 +630,198 @@
         { id: "player_12", name: "Фёдорова Дарья Андреевна" }
     ];
 
-    const STATS_KEY = 'volley_stats_local';
-    const PROFILE_KEY = 'volley_profiles_local';
-    const MATCHES_KEY = 'volley_matches_local';
-
-    function getDefaultStats() {
-        return { serves: 0, passes: 0, receives: 0, spikes: 0 };
-    }
-
-    function getDefaultProfile() {
-        return { avatar: null, birthDate: "", age: "", height: "", gender: "" };
-    }
-
-    function loadStats() {
-        const stored = localStorage.getItem(STATS_KEY);
-        if (stored) return JSON.parse(stored);
-        const initial = {};
-        teamPlayers.forEach(p => { initial[p.id] = getDefaultStats(); });
-        return initial;
-    }
-
-    function loadProfiles() {
-        const stored = localStorage.getItem(PROFILE_KEY);
-        if (stored) return JSON.parse(stored);
-        const initial = {};
-        teamPlayers.forEach(p => { initial[p.id] = getDefaultProfile(); });
-        return initial;
-    }
-
-    function loadMatches() {
-        const stored = localStorage.getItem(MATCHES_KEY);
-        if (stored) return JSON.parse(stored);
-        return [
-            { id: "1", opponent: "Щёлково", ourScore: 2, opponentScore: 3, date: "10.06.2025" }
-        ];
-    }
-
-    let allStats = loadStats();
-    let allProfiles = loadProfiles();
-    let allMatches = loadMatches();
-
-    function persistStats() { localStorage.setItem(STATS_KEY, JSON.stringify(allStats)); }
-    function persistProfiles() { localStorage.setItem(PROFILE_KEY, JSON.stringify(allProfiles)); }
-    function persistMatches() { localStorage.setItem(MATCHES_KEY, JSON.stringify(allMatches)); }
-
+    // Глобальные переменные
+    let allStats = {};
+    let allProfiles = {};
+    let allMatches = [];
     let currentUser = null;
-    function saveSession() { sessionStorage.setItem('volleyUserLocal', JSON.stringify(currentUser)); }
-    function loadSession() {
-        const saved = sessionStorage.getItem('volleyUserLocal');
-        if (saved) { try { currentUser = JSON.parse(saved); return true; } catch(e) {} }
-        return false;
-    }
-    function clearSession() { sessionStorage.removeItem('volleyUserLocal'); currentUser = null; }
+    let currentPlayerForStats = null;
 
+    // Функции для работы с Supabase
+    const supabaseHeaders = {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+    };
+
+    async function loadStats() {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/stats?select=*`, { headers: supabaseHeaders });
+        const data = await response.json();
+        const stats = {};
+        data.forEach(row => {
+            stats[row.player_id] = {
+                serves: row.serves || 0,
+                passes: row.passes || 0,
+                receives: row.receives || 0,
+                spikes: row.spikes || 0
+            };
+        });
+        return stats;
+    }
+
+    async function loadProfiles() {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=*`, { headers: supabaseHeaders });
+        const data = await response.json();
+        const profiles = {};
+        data.forEach(row => {
+            profiles[row.player_id] = {
+                avatar: row.avatar || null,
+                birthDate: row.birth_date || '',
+                age: row.age || '',
+                height: row.height || '',
+                gender: row.gender || ''
+            };
+        });
+        return profiles;
+    }
+
+    async function loadMatches() {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/matches?select=*`, { headers: supabaseHeaders });
+        const data = await response.json();
+        return data.map(row => ({
+            id: row.id,
+            opponent: row.opponent,
+            ourScore: row.our_score,
+            opponentScore: row.opponent_score,
+            date: row.date
+        }));
+    }
+
+    async function saveStats(statsData) {
+        showLoading(true);
+        for (const [playerId, stats] of Object.entries(statsData)) {
+            const existing = allStats[playerId];
+            if (existing) {
+                await fetch(`${SUPABASE_URL}/rest/v1/stats?player_id=eq.${playerId}`, {
+                    method: 'PATCH',
+                    headers: supabaseHeaders,
+                    body: JSON.stringify({
+                        serves: stats.serves,
+                        passes: stats.passes,
+                        receives: stats.receives,
+                        spikes: stats.spikes
+                    })
+                });
+            } else {
+                await fetch(`${SUPABASE_URL}/rest/v1/stats`, {
+                    method: 'POST',
+                    headers: supabaseHeaders,
+                    body: JSON.stringify({
+                        player_id: playerId,
+                        serves: stats.serves,
+                        passes: stats.passes,
+                        receives: stats.receives,
+                        spikes: stats.spikes
+                    })
+                });
+            }
+        }
+        await loadAllData();
+        showLoading(false);
+    }
+
+    async function saveProfiles(profilesData) {
+        showLoading(true);
+        for (const [playerId, profile] of Object.entries(profilesData)) {
+            const existing = allProfiles[playerId];
+            if (existing) {
+                await fetch(`${SUPABASE_URL}/rest/v1/profiles?player_id=eq.${playerId}`, {
+                    method: 'PATCH',
+                    headers: supabaseHeaders,
+                    body: JSON.stringify({
+                        avatar: profile.avatar,
+                        birth_date: profile.birthDate,
+                        age: profile.age,
+                        height: profile.height,
+                        gender: profile.gender
+                    })
+                });
+            } else {
+                await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+                    method: 'POST',
+                    headers: supabaseHeaders,
+                    body: JSON.stringify({
+                        player_id: playerId,
+                        avatar: profile.avatar,
+                        birth_date: profile.birthDate,
+                        age: profile.age,
+                        height: profile.height,
+                        gender: profile.gender
+                    })
+                });
+            }
+        }
+        await loadAllData();
+        showLoading(false);
+    }
+
+    async function saveMatches(matchesData) {
+        showLoading(true);
+        await fetch(`${SUPABASE_URL}/rest/v1/matches?select=*`, {
+            method: 'DELETE',
+            headers: supabaseHeaders
+        });
+        for (const match of matchesData) {
+            await fetch(`${SUPABASE_URL}/rest/v1/matches`, {
+                method: 'POST',
+                headers: supabaseHeaders,
+                body: JSON.stringify({
+                    id: match.id,
+                    opponent: match.opponent,
+                    our_score: match.ourScore,
+                    opponent_score: match.opponentScore,
+                    date: match.date
+                })
+            });
+        }
+        await loadAllData();
+        showLoading(false);
+    }
+
+    async function loadAllData() {
+        showLoading(true);
+        try {
+            const [stats, profiles, matches] = await Promise.all([
+                loadStats(),
+                loadProfiles(),
+                loadMatches()
+            ]);
+            allStats = stats;
+            allProfiles = profiles;
+            allMatches = matches;
+        } catch (error) {
+            console.error('Ошибка загрузки:', error);
+        }
+        showLoading(false);
+        refreshCurrentPage();
+    }
+
+    function showLoading(show) {
+        let overlay = document.getElementById('loadingOverlay');
+        if (show && !overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'loadingOverlay';
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = '<div class="spinner">⏳ Синхронизация...</div>';
+            document.body.appendChild(overlay);
+        } else if (!show && overlay) {
+            overlay.remove();
+        }
+    }
+
+    function refreshCurrentPage() {
+        const active = getActivePageId();
+        if (active === 'rosterPage') showRosterPage();
+        else if (active === 'matchesPage') showMatchesPage();
+        else if (active === 'statsPage' && currentPlayerForStats) {
+            const isAdmin = currentUser && currentUser.role === 'admin';
+            const isOwner = (currentUser && currentUser.role === 'player' && currentUser.playerId === currentPlayerForStats.id);
+            const canEdit = isAdmin || isOwner;
+            renderFullProfile(currentPlayerForStats, canEdit, isAdmin, isOwner);
+        } else if (active === 'homePage') showHomePage();
+    }
+
+    // Аутентификация
     function renderAuthArea() {
         const authArea = document.getElementById('authArea');
         if (currentUser) {
@@ -700,14 +861,7 @@
                 saveSession();
                 modal.remove();
                 renderAuthArea();
-                const active = getActivePageId();
-                if (active === 'statsPage' && window.currentPlayerForStats) {
-                    showStatsPage(window.currentPlayerForStats);
-                } else if (active === 'rosterPage') {
-                    showRosterPage();
-                } else if (active === 'matchesPage') {
-                    showMatchesPage();
-                }
+                loadAllData();
             } else {
                 document.getElementById('loginError').innerText = 'Неверный логин или пароль';
             }
@@ -718,6 +872,15 @@
         document.getElementById('passwordInput')?.addEventListener('keypress', e => { if(e.key === 'Enter') submit(); });
     }
 
+    function saveSession() { sessionStorage.setItem('volleyUserSupabase', JSON.stringify(currentUser)); }
+    function loadSession() {
+        const saved = sessionStorage.getItem('volleyUserSupabase');
+        if (saved) { try { currentUser = JSON.parse(saved); return true; } catch(e) {} }
+        return false;
+    }
+    function clearSession() { sessionStorage.removeItem('volleyUserSupabase'); currentUser = null; }
+
+    // Страницы
     function showHomePage() {
         setActivePage('homePage');
         const previewContainer = document.getElementById('previewPlayersList');
@@ -743,7 +906,7 @@
         const container = document.getElementById('rosterPlayersList');
         container.innerHTML = '';
         teamPlayers.forEach(player => {
-            const stats = allStats[player.id] || getDefaultStats();
+            const stats = allStats[player.id] || { serves: 0, passes: 0, receives: 0, spikes: 0 };
             const statsShort = `🏐П:${stats.serves} | 🎯Па:${stats.passes} | 🛡️Пр:${stats.receives} | ⚡Н:${stats.spikes}`;
             const card = document.createElement('div');
             card.className = 'player-card';
@@ -769,7 +932,7 @@
 
     function renderMatchesList(isAdmin) {
         const container = document.getElementById('matchesList');
-        if (allMatches.length === 0) {
+        if (!allMatches || allMatches.length === 0) {
             container.innerHTML = '<div class="no-matches">📋 Пока нет сыгранных матчей</div>';
             return;
         }
@@ -804,12 +967,11 @@
                 });
             });
             document.querySelectorAll('.delete-match-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
+                btn.addEventListener('click', async (e) => {
                     const id = btn.getAttribute('data-id');
                     if (confirm('Удалить матч?')) {
                         allMatches = allMatches.filter(m => m.id !== id);
-                        persistMatches();
-                        renderMatchesList(true);
+                        await saveMatches(allMatches);
                     }
                 });
             });
@@ -834,7 +996,7 @@
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         const modal = document.getElementById('matchModal');
         
-        const save = () => {
+        const save = async () => {
             const opponent = document.getElementById('matchOpponent').value.trim();
             const ourScore = parseInt(document.getElementById('matchOurScore').value, 10);
             const opponentScore = parseInt(document.getElementById('matchOpponentScore').value, 10);
@@ -855,9 +1017,8 @@
                 const newId = Date.now().toString();
                 allMatches.push({ id: newId, opponent, ourScore, opponentScore, date });
             }
-            persistMatches();
+            await saveMatches(allMatches);
             modal.remove();
-            showMatchesPage();
         };
         
         document.getElementById('saveMatchBtn')?.addEventListener('click', save);
@@ -886,8 +1047,6 @@
         return age >= 0 ? age : null;
     }
 
-    let currentPlayerForStats = null;
-
     function showStatsPage(player) {
         currentPlayerForStats = player;
         const isAdmin = currentUser && currentUser.role === 'admin';
@@ -899,8 +1058,8 @@
     }
 
     function renderFullProfile(player, canEdit, isAdmin, isOwner) {
-        const stats = allStats[player.id] || getDefaultStats();
-        const profile = allProfiles[player.id] || getDefaultProfile();
+        const stats = allStats[player.id] || { serves: 0, passes: 0, receives: 0, spikes: 0 };
+        const profile = allProfiles[player.id] || { avatar: null, birthDate: "", age: "", height: "", gender: "" };
         const container = document.getElementById('statsCard');
         
         let birthDisplay = profile.birthDate || 'не указана';
@@ -909,9 +1068,6 @@
             const calcAge = calculateAgeFromDMY(profile.birthDate);
             if (calcAge !== null) ageDisplay = calcAge + ' лет';
             else ageDisplay = '—';
-        } else if (!profile.age && profile.birthDate) {
-            const calcAge = calculateAgeFromDMY(profile.birthDate);
-            ageDisplay = calcAge !== null ? calcAge + ' лет' : '—';
         } else if (!profile.age) {
             ageDisplay = '—';
         }
@@ -936,7 +1092,7 @@
             <div class="stat-row"><div class="stat-label">🛡️ Приём</div><div class="stat-value" id="receivesVal">${stats.receives}</div>${canEdit ? `<div class="stat-buttons"><button class="stat-btn plus" data-type="receives" data-delta="1">+1</button><button class="stat-btn minus" data-type="receives" data-delta="-1">-1</button></div>` : ''}</div>
             <div class="stat-row"><div class="stat-label">⚡ Нападение</div><div class="stat-value" id="spikesVal">${stats.spikes}</div>${canEdit ? `<div class="stat-buttons"><button class="stat-btn plus" data-type="spikes" data-delta="1">+1</button><button class="stat-btn minus" data-type="spikes" data-delta="-1">-1</button></div>` : ''}</div>
             ${canEdit ? `<button class="save-stats-btn" id="saveStatsBtn">💾 Сохранить статистику</button>` : ''}
-            <div class="info-note">${canEdit ? '* Вы можете редактировать фото, дату рождения, рост, пол и статистику.' : '* Войдите под своим логином или как глава клуба для редактирования.'}</div>
+            <div class="info-note">${canEdit ? '* Вы можете редактировать фото, дату рождения, рост, пол и статистику. Все изменения синхронизируются.' : '* Войдите под своим логином или как глава клуба для редактирования.'}</div>
         `;
         
         if (canEdit) {
@@ -948,9 +1104,9 @@
                     const file = e.target.files[0];
                     if (file) {
                         const reader = new FileReader();
-                        reader.onload = function(ev) {
+                        reader.onload = async function(ev) {
                             allProfiles[player.id] = { ...allProfiles[player.id], avatar: ev.target.result };
-                            persistProfiles();
+                            await saveProfiles(allProfiles);
                             renderFullProfile(player, canEdit, isAdmin, isOwner);
                         };
                         reader.readAsDataURL(file);
@@ -959,7 +1115,7 @@
             }
             
             document.querySelectorAll('.edit-personal-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
+                btn.addEventListener('click', async (e) => {
                     const field = btn.getAttribute('data-field');
                     if (field === 'birthDate') {
                         let newVal = prompt('Введите дату рождения в формате ДД.ММ.ГГГГ (например, 15.06.1995):', profile.birthDate || '');
@@ -967,7 +1123,7 @@
                             const age = calculateAgeFromDMY(newVal);
                             const ageString = age !== null ? age + ' лет' : '—';
                             allProfiles[player.id] = { ...allProfiles[player.id], birthDate: newVal, age: ageString };
-                            persistProfiles();
+                            await saveProfiles(allProfiles);
                             renderFullProfile(player, canEdit, isAdmin, isOwner);
                         } else if (newVal) {
                             alert('Неверный формат. Используйте ДД.ММ.ГГГГ, например: 15.06.1995');
@@ -976,7 +1132,7 @@
                         let newHeight = prompt('Введите рост в сантиметрах (только цифры):', profile.height || '');
                         if (newHeight && !isNaN(parseInt(newHeight))) {
                             allProfiles[player.id] = { ...allProfiles[player.id], height: parseInt(newHeight) };
-                            persistProfiles();
+                            await saveProfiles(allProfiles);
                             renderFullProfile(player, canEdit, isAdmin, isOwner);
                         } else if (newHeight) alert('Введите число');
                     } else if (field === 'gender') {
@@ -997,10 +1153,10 @@
                         oldBtn.style.display = 'none';
                         const saveBtn = document.getElementById('saveGenderBtn');
                         if (saveBtn) {
-                            saveBtn.onclick = () => {
+                            saveBtn.onclick = async () => {
                                 const selected = document.getElementById('genderSelect').value;
                                 allProfiles[player.id] = { ...allProfiles[player.id], gender: selected };
-                                persistProfiles();
+                                await saveProfiles(allProfiles);
                                 renderFullProfile(player, canEdit, isAdmin, isOwner);
                             };
                         }
@@ -1034,10 +1190,10 @@
             });
             const saveBtn = document.getElementById('saveStatsBtn');
             if (saveBtn) {
-                saveBtn.addEventListener('click', () => {
-                    allStats[player.id] = { serves, passes, receives, spikes };
-                    persistStats();
-                    alert('Статистика сохранена!');
+                saveBtn.addEventListener('click', async () => {
+                    const newStats = { ...allStats };
+                    newStats[player.id] = { serves, passes, receives, spikes };
+                    await saveStats(newStats);
                     if (getActivePageId() === 'rosterPage') showRosterPage();
                 });
             }
@@ -1065,9 +1221,10 @@
     document.getElementById('backToHomeFromMatches')?.addEventListener('click', showHomePage);
     document.getElementById('backToRosterFromStats')?.addEventListener('click', () => showRosterPage());
 
+    // Запуск
     if (loadSession()) renderAuthArea();
     else renderAuthArea();
-    showHomePage();
+    loadAllData();
 </script>
 </body>
 </html>
