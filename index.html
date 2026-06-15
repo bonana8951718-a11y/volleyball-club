@@ -261,9 +261,6 @@
             font-weight: bold;
             cursor: pointer;
         }
-        .add-match-btn:hover {
-            background: #4cae4c;
-        }
         .matches-list {
             display: flex;
             flex-direction: column;
@@ -579,7 +576,7 @@
 </div>
 
 <script>
-    // ======================== ИГРОКИ (ОБНОВЛЁННЫЕ: 6-й игрок - Молдованов Максим Александрович) ========================
+    // ======================== ИГРОКИ ========================
     const USERS = {
         "admin": { password: "KorolevAdmin2026", role: "admin", name: "Глава клуба", playerId: null },
         "rabatov_bogdan": { password: "pass1234", role: "player", name: "Рабатов Богдан Денисович", playerId: "player_1" },
@@ -611,9 +608,9 @@
         { id: "player_12", name: "Фёдорова Дарья Андреевна" }
     ];
 
-    const STATS_KEY = 'volley_stats_v8';
-    const PROFILE_KEY = 'volley_profiles_v8';
-    const MATCHES_KEY = 'volley_matches_v3';
+    const STATS_KEY = 'volley_stats_local';
+    const PROFILE_KEY = 'volley_profiles_local';
+    const MATCHES_KEY = 'volley_matches_local';
 
     function getDefaultStats() {
         return { serves: 0, passes: 0, receives: 0, spikes: 0 };
@@ -656,13 +653,13 @@
     function persistMatches() { localStorage.setItem(MATCHES_KEY, JSON.stringify(allMatches)); }
 
     let currentUser = null;
-    function saveSession() { sessionStorage.setItem('volleyUserFinal', JSON.stringify(currentUser)); }
+    function saveSession() { sessionStorage.setItem('volleyUserLocal', JSON.stringify(currentUser)); }
     function loadSession() {
-        const saved = sessionStorage.getItem('volleyUserFinal');
+        const saved = sessionStorage.getItem('volleyUserLocal');
         if (saved) { try { currentUser = JSON.parse(saved); return true; } catch(e) {} }
         return false;
     }
-    function clearSession() { sessionStorage.removeItem('volleyUserFinal'); currentUser = null; }
+    function clearSession() { sessionStorage.removeItem('volleyUserLocal'); currentUser = null; }
 
     function renderAuthArea() {
         const authArea = document.getElementById('authArea');
@@ -867,7 +864,6 @@
         document.getElementById('closeMatchModal')?.addEventListener('click', () => modal.remove());
     }
 
-    // Функции для статистики игроков
     function parseDateDMY(dateStr) {
         if (!dateStr) return null;
         const parts = dateStr.split('.');
