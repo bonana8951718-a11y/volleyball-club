@@ -2,82 +2,1229 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>ГДО "Королёв" - Локальная версия</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>ГДО "Королёв" - Волейбольный клуб</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui; }
-        body { background: #f0f4fa; padding: 2rem; }
-        .app-container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 2rem; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-        h1 { color: #1a2a3f; text-align: center; margin-bottom: 1rem; }
-        .players { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem; margin-top: 2rem; }
-        .player-card { background: #f8f9fa; border-radius: 1rem; padding: 1rem; border-left: 5px solid #ffb347; }
-        .player-name { font-weight: bold; font-size: 1.1rem; margin-bottom: 0.5rem; }
-        .stats { font-size: 0.9rem; color: #555; }
-        button { background: #ffb347; border: none; padding: 5px 10px; border-radius: 20px; cursor: pointer; margin: 2px; }
-        .login-area { text-align: right; margin-bottom: 20px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', 'Roboto', 'Montserrat', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(145deg, #f0f4fa 0%, #d9e2ef 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1.5rem;
+        }
+
+        .app-container {
+            max-width: 1300px;
+            width: 100%;
+            background: rgba(255,255,255,0.75);
+            backdrop-filter: blur(1px);
+            border-radius: 2.5rem;
+            box-shadow: 0 25px 45px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.5);
+            overflow: hidden;
+        }
+
+        .main-header {
+            background: #1a2a3f;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            border-bottom: 4px solid #ffb347;
+        }
+        .club-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .club-logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #ffb347, #ff8c00);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.8rem;
+            color: white;
+            text-shadow: 2px 2px 0 #b45f06;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .club-text h1 {
+            color: white;
+            font-size: 1.9rem;
+            letter-spacing: 1px;
+            font-weight: 700;
+            text-shadow: 2px 2px 0 #0f1a2b;
+        }
+        .club-text p {
+            color: #ffd966;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .auth-area {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .login-btn, .logout-btn {
+            background: #ffb347;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: 0.2s;
+            color: #1e2f3f;
+        }
+        .login-btn:hover, .logout-btn:hover {
+            background: #ff9f1a;
+            transform: scale(1.02);
+        }
+        .user-greeting {
+            background: #2e425b;
+            padding: 5px 15px;
+            border-radius: 40px;
+            color: white;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        .user-greeting span {
+            color: #ffb347;
+            font-weight: bold;
+        }
+        .admin-badge {
+            background: #d9534f;
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 20px;
+            margin-left: 8px;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .spinner {
+            background: white;
+            padding: 20px 40px;
+            border-radius: 60px;
+            font-weight: bold;
+        }
+
+        .page {
+            display: none;
+            padding: 2rem;
+            animation: fade 0.2s ease;
+        }
+        .active-page {
+            display: block;
+        }
+        @keyframes fade {
+            from { opacity: 0; transform: translateY(8px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .login-modal {
+            background: white;
+            border-radius: 32px;
+            padding: 32px;
+            width: 380px;
+            max-width: 90%;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+        }
+        .login-modal h3 {
+            margin-bottom: 20px;
+            text-align: center;
+            color: #1a2a3f;
+        }
+        .login-modal input {
+            width: 100%;
+            padding: 12px 16px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 60px;
+            font-size: 1rem;
+        }
+        .login-modal button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            background: #ffb347;
+            border: none;
+            border-radius: 60px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .login-modal .error-msg {
+            color: #d9534f;
+            font-size: 0.8rem;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .close-modal {
+            background: #6c757d !important;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .single-team-card {
+            background: white;
+            border-radius: 2rem;
+            max-width: 950px;
+            margin: 0 auto;
+            overflow: hidden;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.1);
+        }
+        .team-header-main {
+            background: linear-gradient(135deg, #2c5a7a, #1e3e58);
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        .team-preview {
+            padding: 1.5rem;
+        }
+        .players-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .preview-player {
+            background: #f0f4fa;
+            padding: 6px 12px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .action-btn {
+            background: #ffb347;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 60px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            flex: 1;
+            min-width: 180px;
+            transition: 0.2s;
+        }
+        .action-btn:hover {
+            background: #ff9f1a;
+            transform: scale(1.02);
+        }
+        .action-btn.secondary {
+            background: #2c5a7a;
+            color: white;
+        }
+        .action-btn.secondary:hover {
+            background: #1e3e58;
+        }
+
+        .matches-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .add-match-btn {
+            background: #5cb85c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .matches-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .match-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1rem 1.5rem;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .match-info {
+            flex: 2;
+        }
+        .match-opponent {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #1a2a3f;
+        }
+        .match-score {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .match-score.defeat {
+            color: #d9534f;
+        }
+        .match-score.victory {
+            color: #5cb85c;
+        }
+        .match-date {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 5px;
+        }
+        .match-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .edit-match-btn, .delete-match-btn {
+            background: #e9ecef;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .edit-match-btn {
+            background: #ffb347;
+            color: #1e2f3f;
+        }
+        .delete-match-btn {
+            background: #d9534f;
+            color: white;
+        }
+        .no-matches {
+            text-align: center;
+            padding: 2rem;
+            color: #888;
+        }
+
+        .roster-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.2rem;
+            margin-top: 1.5rem;
+        }
+        .player-card {
+            background: white;
+            border-radius: 1.5rem;
+            padding: 1rem;
+            box-shadow: 0 5px 12px rgba(0,0,0,0.08);
+            cursor: pointer;
+            border-left: 6px solid #ffb347;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .player-info h3 {
+            font-size: 1rem;
+            margin-bottom: 5px;
+            color: #1a2a3f;
+        }
+        .player-stats-mini {
+            font-size: 0.7rem;
+            color: #666;
+        }
+        .stats-badge {
+            background: #2c5a7a20;
+            padding: 5px 12px;
+            border-radius: 40px;
+            font-size: 0.75rem;
+        }
+
+        .stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .back-btn {
+            background: #2c5a7a;
+            border: none;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .player-stats-card {
+            background: white;
+            border-radius: 2rem;
+            padding: 2rem;
+            max-width: 750px;
+            margin: 0 auto;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+        }
+        .profile-photo-section {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .avatar-preview {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #ffb347;
+            background: #e9ecef;
+        }
+        .photo-upload-btn {
+            background: #2c5a7a;
+            color: white;
+            border: none;
+            padding: 6px 15px;
+            border-radius: 30px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .personal-info {
+            background: #f8f9fa;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin: 1rem 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: space-between;
+        }
+        .info-field {
+            flex: 1;
+            min-width: 140px;
+        }
+        .info-field label {
+            font-weight: bold;
+            font-size: 0.8rem;
+            color: #666;
+            display: block;
+        }
+        .info-field .info-value {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #1a2a3f;
+        }
+        .edit-personal-btn {
+            background: #ffb347;
+            border: none;
+            padding: 6px 15px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+        select.edit-select {
+            margin-top: 5px;
+            padding: 5px;
+            border-radius: 20px;
+            border: 1px solid #ccc;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 1rem 0;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px dashed #ccc;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .stat-label {
+            font-weight: bold;
+            font-size: 1.1rem;
+            width: 130px;
+            color: #1a2a3f;
+        }
+        .stat-value {
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: #f0f4fa;
+            padding: 0.2rem 1rem;
+            border-radius: 40px;
+            min-width: 80px;
+            text-align: center;
+        }
+        .stat-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        .stat-btn {
+            background: #e9ecef;
+            border: none;
+            font-size: 1.3rem;
+            font-weight: bold;
+            width: 44px;
+            height: 44px;
+            border-radius: 30px;
+            cursor: pointer;
+        }
+        .stat-btn.plus { background: #5cb85c; color: white; }
+        .stat-btn.minus { background: #d9534f; color: white; }
+        .save-stats-btn {
+            background: #ffb347;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            border-radius: 60px;
+            font-weight: bold;
+            font-size: 1rem;
+            margin-top: 20px;
+            cursor: pointer;
+        }
+        .info-note {
+            font-size: 0.75rem;
+            text-align: center;
+            margin-top: 15px;
+            color: gray;
+        }
+        footer {
+            background: #1a2a3f;
+            color: #aaa;
+            text-align: center;
+            padding: 1rem;
+            font-size: 0.75rem;
+        }
+        @media (max-width: 700px) {
+            .main-header { flex-direction: column; text-align: center; }
+            .club-title { justify-content: center; }
+            .stat-label { width: 100px; font-size: 1rem; }
+        }
     </style>
 </head>
 <body>
 <div class="app-container">
-    <div class="login-area" id="loginArea"></div>
-    <h1>🏐 ГДО "Королёв" — Состав команды</h1>
-    <div id="playersList" class="players"></div>
+    <div class="main-header">
+        <div class="club-title">
+            <div class="club-logo">
+                <span>🏐</span>
+            </div>
+            <div class="club-text">
+                <h1>ГДО "Королёв"</h1>
+                <p>🏐 Смешанная волейбольная команда | 12 игроков 🏐</p>
+            </div>
+        </div>
+        <div class="auth-area" id="authArea"></div>
+    </div>
+
+    <div id="homePage" class="page active-page">
+        <div class="single-team-card">
+            <div class="team-header-main">🏆 ГДО "Королёв" — 12 игроков 🏆</div>
+            <div class="team-preview">
+                <div class="players-preview" id="previewPlayersList"></div>
+                <div class="action-buttons">
+                    <button class="action-btn" id="openRosterBtn">📋 Состав команды</button>
+                    <button class="action-btn secondary" id="openMatchesBtn">🏆 Матчи</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="rosterPage" class="page">
+        <div class="stats-header">
+            <button class="back-btn" id="backToHomeFromRoster">← На главную</button>
+            <h2 id="rosterTitle">🏐 Состав команды</h2>
+            <div style="width:80px;"></div>
+        </div>
+        <div id="rosterPlayersList" class="roster-grid"></div>
+    </div>
+
+    <div id="matchesPage" class="page">
+        <div class="stats-header">
+            <button class="back-btn" id="backToHomeFromMatches">← На главную</button>
+            <h2>🏆 Календарь и результаты матчей</h2>
+            <div id="adminMatchControls" style="display:none;"></div>
+        </div>
+        <div id="matchesList" class="matches-list"></div>
+    </div>
+
+    <div id="statsPage" class="page">
+        <div class="stats-header">
+            <button class="back-btn" id="backToRosterFromStats">← Назад</button>
+            <h2 id="statsPlayerName"></h2>
+            <div style="width:80px;"></div>
+        </div>
+        <div class="player-stats-card" id="statsCard"></div>
+    </div>
+    <footer>👥 Просмотр доступен всем. Редактировать могут только игроки (под своим логином) и глава клуба. Данные синхронизируются через Supabase.</footer>
 </div>
 
 <script>
-    // Простейшая локальная версия
-    const players = [
-        "Рабатов Богдан Денисович", "Рабатов Глеб Денисович", "Икоркин Александр Владленович",
-        "Кутузов Сергей Васильевич", "Ладина София Игоревна", "Молдованов Максим Александрович",
-        "Лебедев Сергей Александрович", "Соколова Ольга Дмитриевна", "Ким Виталий Евгеньевич",
-        "Захарова Алина Максимовна", "Новиков Роман Ильич", "Фёдорова Дарья Андреевна"
-    ];
+    // ======================== НАСТРОЙКИ SUPABASE ========================
+    const SUPABASE_URL = 'https://vtignavggxmmgaicyvpu.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0aWduYXZnZ3htbWdhaWN5dnB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NDQyNzYsImV4cCI6MjA5NzEyMDI3Nn0.IvHtEN0D4vDS73q_zXBrlckY_uOcBEWZmREvk28Rsvk';
 
-    // Загрузка статистики из localStorage
-    let stats = JSON.parse(localStorage.getItem('volley_stats_local')) || {};
-    players.forEach((name, i) => { if (!stats[`player_${i+1}`]) stats[`player_${i+1}`] = { serves:0, passes:0, receives:0, spikes:0 }; });
-
-    function saveStats() { localStorage.setItem('volley_stats_local', JSON.stringify(stats)); }
-
-    function render() {
-        const container = document.getElementById('playersList');
-        container.innerHTML = players.map((name, i) => {
-            const id = `player_${i+1}`;
-            const s = stats[id];
-            return `
-                <div class="player-card">
-                    <div class="player-name">${name}</div>
-                    <div class="stats">
-                        🏐 Подачи: ${s.serves} 
-                        <button onclick="changeStat('${id}', 'serves', 1)">+1</button>
-                        <button onclick="changeStat('${id}', 'serves', -1)">-1</button><br>
-                        🎯 Пасы: ${s.passes} 
-                        <button onclick="changeStat('${id}', 'passes', 1)">+1</button>
-                        <button onclick="changeStat('${id}', 'passes', -1)">-1</button><br>
-                        🛡️ Приём: ${s.receives} 
-                        <button onclick="changeStat('${id}', 'receives', 1)">+1</button>
-                        <button onclick="changeStat('${id}', 'receives', -1)">-1</button><br>
-                        ⚡ Нападение: ${s.spikes} 
-                        <button onclick="changeStat('${id}', 'spikes', 1)">+1</button>
-                        <button onclick="changeStat('${id}', 'spikes', -1)">-1</button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    window.changeStat = (playerId, stat, delta) => {
-        const newVal = Math.max(0, stats[playerId][stat] + delta);
-        stats[playerId][stat] = newVal;
-        saveStats();
-        render();
+    // ======================== ИГРОКИ ========================
+    const USERS = {
+        "admin": { password: "KorolevAdmin2026", role: "admin", name: "Глава клуба", playerId: null },
+        "rabatov_bogdan": { password: "pass1234", role: "player", name: "Рабатов Богдан Денисович", playerId: "player_1" },
+        "rabatov_gleb": { password: "pass5678", role: "player", name: "Рабатов Глеб Денисович", playerId: "player_2" },
+        "ikorkin_alexandr": { password: "pass9012", role: "player", name: "Икоркин Александр Владленович", playerId: "player_3" },
+        "kutuzov_sergey": { password: "pass3456", role: "player", name: "Кутузов Сергей Васильевич", playerId: "player_4" },
+        "ladina_sofia": { password: "pass7890", role: "player", name: "Ладина София Игоревна", playerId: "player_5" },
+        "moldovanov_maxim": { password: "pass1112", role: "player", name: "Молдованов Максим Александрович", playerId: "player_6" },
+        "lebedev_sergey": { password: "pass1314", role: "player", name: "Лебедев Сергей Александрович", playerId: "player_7" },
+        "sokolova_olga": { password: "pass1516", role: "player", name: "Соколова Ольга Дмитриевна", playerId: "player_8" },
+        "kim_vitaliy": { password: "pass1718", role: "player", name: "Ким Виталий Евгеньевич", playerId: "player_9" },
+        "zakharova_alina": { password: "pass1920", role: "player", name: "Захарова Алина Максимовна", playerId: "player_10" },
+        "novikov_roman": { password: "pass2122", role: "player", name: "Новиков Роман Ильич", playerId: "player_11" },
+        "fedorova_daria": { password: "pass2324", role: "player", name: "Фёдорова Дарья Андреевна", playerId: "player_12" }
     };
 
-    function renderAuth() {
-        document.getElementById('loginArea').innerHTML = `<span>🔐 Локальная версия (данные в браузере)</span>`;
+    const teamPlayers = [
+        { id: "player_1", name: "Рабатов Богдан Денисович" },
+        { id: "player_2", name: "Рабатов Глеб Денисович" },
+        { id: "player_3", name: "Икоркин Александр Владленович" },
+        { id: "player_4", name: "Кутузов Сергей Васильевич" },
+        { id: "player_5", name: "Ладина София Игоревна" },
+        { id: "player_6", name: "Молдованов Максим Александрович" },
+        { id: "player_7", name: "Лебедев Сергей Александрович" },
+        { id: "player_8", name: "Соколова Ольга Дмитриевна" },
+        { id: "player_9", name: "Ким Виталий Евгеньевич" },
+        { id: "player_10", name: "Захарова Алина Максимовна" },
+        { id: "player_11", name: "Новиков Роман Ильич" },
+        { id: "player_12", name: "Фёдорова Дарья Андреевна" }
+    ];
+
+    // Глобальные переменные
+    let allStats = {};
+    let allProfiles = {};
+    let allMatches = [];
+    let currentUser = null;
+    let currentPlayerForStats = null;
+
+    // Функции для работы с Supabase
+    const supabaseHeaders = {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+    };
+
+    async function loadStats() {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/stats?select=*`, { headers: supabaseHeaders });
+        const data = await response.json();
+        const stats = {};
+        data.forEach(row => {
+            stats[row.player_id] = {
+                serves: row.serves || 0,
+                passes: row.passes || 0,
+                receives: row.receives || 0,
+                spikes: row.spikes || 0
+            };
+        });
+        return stats;
     }
 
-    renderAuth();
-    render();
+    async function loadProfiles() {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=*`, { headers: supabaseHeaders });
+        const data = await response.json();
+        const profiles = {};
+        data.forEach(row => {
+            profiles[row.player_id] = {
+                avatar: row.avatar || null,
+                birthDate: row.birth_date || '',
+                age: row.age || '',
+                height: row.height || '',
+                gender: row.gender || ''
+            };
+        });
+        return profiles;
+    }
+
+    async function loadMatches() {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/matches?select=*`, { headers: supabaseHeaders });
+        const data = await response.json();
+        return data.map(row => ({
+            id: row.id,
+            opponent: row.opponent,
+            ourScore: row.our_score,
+            opponentScore: row.opponent_score,
+            date: row.date
+        }));
+    }
+
+    async function saveStats(statsData) {
+        showLoading(true);
+        for (const [playerId, stats] of Object.entries(statsData)) {
+            const existing = allStats[playerId];
+            if (existing) {
+                await fetch(`${SUPABASE_URL}/rest/v1/stats?player_id=eq.${playerId}`, {
+                    method: 'PATCH',
+                    headers: supabaseHeaders,
+                    body: JSON.stringify({
+                        serves: stats.serves,
+                        passes: stats.passes,
+                        receives: stats.receives,
+                        spikes: stats.spikes
+                    })
+                });
+            } else {
+                await fetch(`${SUPABASE_URL}/rest/v1/stats`, {
+                    method: 'POST',
+                    headers: supabaseHeaders,
+                    body: JSON.stringify({
+                        player_id: playerId,
+                        serves: stats.serves,
+                        passes: stats.passes,
+                        receives: stats.receives,
+                        spikes: stats.spikes
+                    })
+                });
+            }
+        }
+        await loadAllData();
+        showLoading(false);
+    }
+
+    async function saveProfiles(profilesData) {
+        showLoading(true);
+        for (const [playerId, profile] of Object.entries(profilesData)) {
+            const existing = allProfiles[playerId];
+            if (existing) {
+                await fetch(`${SUPABASE_URL}/rest/v1/profiles?player_id=eq.${playerId}`, {
+                    method: 'PATCH',
+                    headers: supabaseHeaders,
+                    body: JSON.stringify({
+                        avatar: profile.avatar,
+                        birth_date: profile.birthDate,
+                        age: profile.age,
+                        height: profile.height,
+                        gender: profile.gender
+                    })
+                });
+            } else {
+                await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+                    method: 'POST',
+                    headers: supabaseHeaders,
+                    body: JSON.stringify({
+                        player_id: playerId,
+                        avatar: profile.avatar,
+                        birth_date: profile.birthDate,
+                        age: profile.age,
+                        height: profile.height,
+                        gender: profile.gender
+                    })
+                });
+            }
+        }
+        await loadAllData();
+        showLoading(false);
+    }
+
+    async function saveMatches(matchesData) {
+        showLoading(true);
+        await fetch(`${SUPABASE_URL}/rest/v1/matches?select=*`, {
+            method: 'DELETE',
+            headers: supabaseHeaders
+        });
+        for (const match of matchesData) {
+            await fetch(`${SUPABASE_URL}/rest/v1/matches`, {
+                method: 'POST',
+                headers: supabaseHeaders,
+                body: JSON.stringify({
+                    id: match.id,
+                    opponent: match.opponent,
+                    our_score: match.ourScore,
+                    opponent_score: match.opponentScore,
+                    date: match.date
+                })
+            });
+        }
+        await loadAllData();
+        showLoading(false);
+    }
+
+    async function loadAllData() {
+        showLoading(true);
+        try {
+            const [stats, profiles, matches] = await Promise.all([
+                loadStats(),
+                loadProfiles(),
+                loadMatches()
+            ]);
+            allStats = stats;
+            allProfiles = profiles;
+            allMatches = matches;
+        } catch (error) {
+            console.error('Ошибка загрузки:', error);
+        }
+        showLoading(false);
+        refreshCurrentPage();
+    }
+
+    function showLoading(show) {
+        let overlay = document.getElementById('loadingOverlay');
+        if (show && !overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'loadingOverlay';
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = '<div class="spinner">⏳ Синхронизация...</div>';
+            document.body.appendChild(overlay);
+        } else if (!show && overlay) {
+            overlay.remove();
+        }
+    }
+
+    function refreshCurrentPage() {
+        const active = getActivePageId();
+        if (active === 'rosterPage') showRosterPage();
+        else if (active === 'matchesPage') showMatchesPage();
+        else if (active === 'statsPage' && currentPlayerForStats) {
+            const isAdmin = currentUser && currentUser.role === 'admin';
+            const isOwner = (currentUser && currentUser.role === 'player' && currentUser.playerId === currentPlayerForStats.id);
+            const canEdit = isAdmin || isOwner;
+            renderFullProfile(currentPlayerForStats, canEdit, isAdmin, isOwner);
+        } else if (active === 'homePage') showHomePage();
+    }
+
+    // Аутентификация
+    function renderAuthArea() {
+        const authArea = document.getElementById('authArea');
+        if (currentUser) {
+            const isAdmin = currentUser.role === 'admin';
+            authArea.innerHTML = `
+                <div class="user-greeting">Привет, <span>${currentUser.name}</span> ${isAdmin ? '<span class="admin-badge">Глава клуба</span>' : '🏐'}</div>
+                <button class="logout-btn" id="logoutBtn">Выйти</button>
+            `;
+            document.getElementById('logoutBtn')?.addEventListener('click', () => { clearSession(); renderAuthArea(); showHomePage(); location.reload(); });
+        } else {
+            authArea.innerHTML = `<button class="login-btn" id="loginBtn">🔐 Войти (редактирование)</button>`;
+            document.getElementById('loginBtn')?.addEventListener('click', showLoginModal);
+        }
+    }
+
+    function showLoginModal() {
+        const modalHtml = `
+            <div class="modal-overlay" id="loginModal">
+                <div class="login-modal">
+                    <h3>🔐 Вход для редактирования</h3>
+                    <input type="text" id="loginInput" placeholder="Логин">
+                    <input type="password" id="passwordInput" placeholder="Пароль">
+                    <button id="submitLoginBtn">Войти</button>
+                    <button id="closeModalBtn" class="close-modal">Отмена</button>
+                    <div id="loginError" class="error-msg"></div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = document.getElementById('loginModal');
+        const submit = () => {
+            const login = document.getElementById('loginInput').value.trim().toLowerCase();
+            const pwd = document.getElementById('passwordInput').value;
+            const user = USERS[login];
+            if (user && user.password === pwd) {
+                currentUser = { login, role: user.role, name: user.name, playerId: user.playerId };
+                saveSession();
+                modal.remove();
+                renderAuthArea();
+                loadAllData();
+            } else {
+                document.getElementById('loginError').innerText = 'Неверный логин или пароль';
+            }
+        };
+        document.getElementById('submitLoginBtn')?.addEventListener('click', submit);
+        document.getElementById('closeModalBtn')?.addEventListener('click', () => modal.remove());
+        document.getElementById('loginInput')?.addEventListener('keypress', e => { if(e.key === 'Enter') submit(); });
+        document.getElementById('passwordInput')?.addEventListener('keypress', e => { if(e.key === 'Enter') submit(); });
+    }
+
+    function saveSession() { sessionStorage.setItem('volleyUserSupabase', JSON.stringify(currentUser)); }
+    function loadSession() {
+        const saved = sessionStorage.getItem('volleyUserSupabase');
+        if (saved) { try { currentUser = JSON.parse(saved); return true; } catch(e) {} }
+        return false;
+    }
+    function clearSession() { sessionStorage.removeItem('volleyUserSupabase'); currentUser = null; }
+
+    // Страницы
+    function showHomePage() {
+        setActivePage('homePage');
+        const previewContainer = document.getElementById('previewPlayersList');
+        if (previewContainer) {
+            previewContainer.innerHTML = teamPlayers.slice(0, 6).map(p => `<div class="preview-player">🏐 ${p.name}</div>`).join('');
+            let extra = previewContainer.parentNode?.querySelector('.extra-count');
+            if(!extra) {
+                extra = document.createElement('div');
+                extra.style.marginTop = '10px';
+                extra.style.fontSize = '0.85rem';
+                extra.style.color = '#2c5a7a';
+                extra.classList.add('extra-count');
+                previewContainer.parentNode?.appendChild(extra);
+            }
+            extra.innerHTML = `и ещё ${teamPlayers.length - 6} игроков ...`;
+        }
+    }
+
+    function showRosterPage() {
+        setActivePage('rosterPage');
+        const isAdmin = currentUser && currentUser.role === 'admin';
+        document.getElementById('rosterTitle').innerHTML = isAdmin ? '🏐 Состав (админ: можно редактировать)' : '🏐 Состав команды';
+        const container = document.getElementById('rosterPlayersList');
+        container.innerHTML = '';
+        teamPlayers.forEach(player => {
+            const stats = allStats[player.id] || { serves: 0, passes: 0, receives: 0, spikes: 0 };
+            const statsShort = `🏐П:${stats.serves} | 🎯Па:${stats.passes} | 🛡️Пр:${stats.receives} | ⚡Н:${stats.spikes}`;
+            const card = document.createElement('div');
+            card.className = 'player-card';
+            card.innerHTML = `<div class="player-info"><h3>${player.name}</h3><div class="player-stats-mini">${statsShort}</div></div><div class="stats-badge">📊 профиль →</div>`;
+            card.addEventListener('click', () => showStatsPage(player));
+            container.appendChild(card);
+        });
+    }
+
+    function showMatchesPage() {
+        setActivePage('matchesPage');
+        const isAdmin = currentUser && currentUser.role === 'admin';
+        const adminControls = document.getElementById('adminMatchControls');
+        if (isAdmin) {
+            adminControls.style.display = 'block';
+            adminControls.innerHTML = `<button class="add-match-btn" id="addMatchBtn">➕ Добавить матч</button>`;
+            document.getElementById('addMatchBtn')?.addEventListener('click', () => addEditMatch());
+        } else {
+            adminControls.style.display = 'none';
+        }
+        renderMatchesList(isAdmin);
+    }
+
+    function renderMatchesList(isAdmin) {
+        const container = document.getElementById('matchesList');
+        if (!allMatches || allMatches.length === 0) {
+            container.innerHTML = '<div class="no-matches">📋 Пока нет сыгранных матчей</div>';
+            return;
+        }
+        container.innerHTML = allMatches.map(match => {
+            const isWin = match.ourScore > match.opponentScore;
+            const isLose = match.ourScore < match.opponentScore;
+            let scoreClass = '';
+            if (isWin) scoreClass = 'victory';
+            if (isLose) scoreClass = 'defeat';
+            return `
+            <div class="match-card">
+                <div class="match-info">
+                    <div class="match-opponent">⚔️ vs ${match.opponent}</div>
+                    <div class="match-score ${scoreClass}">🏐 Счёт: ${match.ourScore} : ${match.opponentScore}</div>
+                    <div class="match-date">📅 ${match.date || 'Дата не указана'}</div>
+                </div>
+                ${isAdmin ? `
+                <div class="match-actions">
+                    <button class="edit-match-btn" data-id="${match.id}">✏️ Ред.</button>
+                    <button class="delete-match-btn" data-id="${match.id}">🗑 Удалить</button>
+                </div>
+                ` : ''}
+            </div>
+        `}).join('');
+        
+        if (isAdmin) {
+            document.querySelectorAll('.edit-match-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = btn.getAttribute('data-id');
+                    const match = allMatches.find(m => m.id === id);
+                    if (match) addEditMatch(match);
+                });
+            });
+            document.querySelectorAll('.delete-match-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = btn.getAttribute('data-id');
+                    if (confirm('Удалить матч?')) {
+                        allMatches = allMatches.filter(m => m.id !== id);
+                        await saveMatches(allMatches);
+                    }
+                });
+            });
+        }
+    }
+
+    function addEditMatch(match = null) {
+        const isEdit = !!match;
+        const modalHtml = `
+            <div class="modal-overlay" id="matchModal">
+                <div class="login-modal" style="width:400px;">
+                    <h3>${isEdit ? '✏️ Редактировать матч' : '➕ Добавить матч'}</h3>
+                    <input type="text" id="matchOpponent" placeholder="Команда соперника" value="${match ? match.opponent : ''}">
+                    <input type="text" id="matchOurScore" placeholder="Наши очки" value="${match ? match.ourScore : ''}">
+                    <input type="text" id="matchOpponentScore" placeholder="Очки соперника" value="${match ? match.opponentScore : ''}">
+                    <input type="text" id="matchDate" placeholder="Дата (ДД.ММ.ГГГГ)" value="${match ? match.date : ''}">
+                    <button id="saveMatchBtn">💾 Сохранить</button>
+                    <button id="closeMatchModal" class="close-modal">Отмена</button>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = document.getElementById('matchModal');
+        
+        const save = async () => {
+            const opponent = document.getElementById('matchOpponent').value.trim();
+            const ourScore = parseInt(document.getElementById('matchOurScore').value, 10);
+            const opponentScore = parseInt(document.getElementById('matchOpponentScore').value, 10);
+            const date = document.getElementById('matchDate').value.trim();
+            
+            if (!opponent || isNaN(ourScore) || isNaN(opponentScore)) {
+                alert('Заполните все поля корректно');
+                return;
+            }
+            
+            if (isEdit) {
+                match.opponent = opponent;
+                match.ourScore = ourScore;
+                match.opponentScore = opponentScore;
+                match.date = date;
+                allMatches = allMatches.map(m => m.id === match.id ? match : m);
+            } else {
+                const newId = Date.now().toString();
+                allMatches.push({ id: newId, opponent, ourScore, opponentScore, date });
+            }
+            await saveMatches(allMatches);
+            modal.remove();
+        };
+        
+        document.getElementById('saveMatchBtn')?.addEventListener('click', save);
+        document.getElementById('closeMatchModal')?.addEventListener('click', () => modal.remove());
+    }
+
+    function parseDateDMY(dateStr) {
+        if (!dateStr) return null;
+        const parts = dateStr.split('.');
+        if (parts.length === 3) {
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const year = parseInt(parts[2], 10);
+            return new Date(year, month, day);
+        }
+        return null;
+    }
+
+    function calculateAgeFromDMY(dateStr) {
+        const birthDate = parseDateDMY(dateStr);
+        if (!birthDate || isNaN(birthDate)) return null;
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+        return age >= 0 ? age : null;
+    }
+
+    function showStatsPage(player) {
+        currentPlayerForStats = player;
+        const isAdmin = currentUser && currentUser.role === 'admin';
+        const isOwner = (currentUser && currentUser.role === 'player' && currentUser.playerId === player.id);
+        const canEdit = isAdmin || isOwner;
+        document.getElementById('statsPlayerName').innerHTML = `${player.name} ${canEdit ? '<span style="font-size:0.8rem;">(редактирование доступно)</span>' : '<span style="font-size:0.8rem;">(просмотр)</span>'}`;
+        renderFullProfile(player, canEdit, isAdmin, isOwner);
+        setActivePage('statsPage');
+    }
+
+    function renderFullProfile(player, canEdit, isAdmin, isOwner) {
+        const stats = allStats[player.id] || { serves: 0, passes: 0, receives: 0, spikes: 0 };
+        const profile = allProfiles[player.id] || { avatar: null, birthDate: "", age: "", height: "", gender: "" };
+        const container = document.getElementById('statsCard');
+        
+        let birthDisplay = profile.birthDate || 'не указана';
+        let ageDisplay = profile.age || '';
+        if (profile.birthDate && !profile.age) {
+            const calcAge = calculateAgeFromDMY(profile.birthDate);
+            if (calcAge !== null) ageDisplay = calcAge + ' лет';
+            else ageDisplay = '—';
+        } else if (!profile.age) {
+            ageDisplay = '—';
+        }
+        
+        const genderDisplay = profile.gender ? (profile.gender === 'male' ? '♂ Мужской' : '♀ Женский') : 'не указан';
+        const avatarSrc = profile.avatar ? profile.avatar : 'https://via.placeholder.com/140x140?text=Фото';
+        
+        container.innerHTML = `
+            <div class="profile-photo-section">
+                <img src="${avatarSrc}" class="avatar-preview" id="avatarImg" onerror="this.src='https://via.placeholder.com/140x140?text=Фото'">
+                ${canEdit ? `<br><button class="photo-upload-btn" id="uploadPhotoBtn">📷 Загрузить фото</button><input type="file" id="photoInput" accept="image/*" style="display:none">` : ''}
+            </div>
+            <div class="personal-info">
+                <div class="info-field"><label>📅 Дата рождения (ДД.ММ.ГГГГ)</label><div class="info-value" id="birthDateText">${birthDisplay}</div>${canEdit ? `<button class="edit-personal-btn" data-field="birthDate">✏️</button>` : ''}</div>
+                <div class="info-field"><label>🎂 Возраст</label><div class="info-value" id="ageText">${ageDisplay}</div></div>
+                <div class="info-field"><label>📏 Рост (см)</label><div class="info-value" id="heightText">${profile.height || 'не указан'}</div>${canEdit ? `<button class="edit-personal-btn" data-field="height">✏️</button>` : ''}</div>
+                <div class="info-field"><label>⚧ Пол</label><div class="info-value" id="genderText">${genderDisplay}</div>${canEdit ? `<button class="edit-personal-btn" data-field="gender">✏️</button>` : ''}</div>
+            </div>
+            <h3 style="margin:20px 0 10px">📊 Игровая статистика</h3>
+            <div class="stat-row"><div class="stat-label">🏐 Подачи</div><div class="stat-value" id="servesVal">${stats.serves}</div>${canEdit ? `<div class="stat-buttons"><button class="stat-btn plus" data-type="serves" data-delta="1">+1</button><button class="stat-btn minus" data-type="serves" data-delta="-1">-1</button></div>` : ''}</div>
+            <div class="stat-row"><div class="stat-label">🎯 Пасы</div><div class="stat-value" id="passesVal">${stats.passes}</div>${canEdit ? `<div class="stat-buttons"><button class="stat-btn plus" data-type="passes" data-delta="1">+1</button><button class="stat-btn minus" data-type="passes" data-delta="-1">-1</button></div>` : ''}</div>
+            <div class="stat-row"><div class="stat-label">🛡️ Приём</div><div class="stat-value" id="receivesVal">${stats.receives}</div>${canEdit ? `<div class="stat-buttons"><button class="stat-btn plus" data-type="receives" data-delta="1">+1</button><button class="stat-btn minus" data-type="receives" data-delta="-1">-1</button></div>` : ''}</div>
+            <div class="stat-row"><div class="stat-label">⚡ Нападение</div><div class="stat-value" id="spikesVal">${stats.spikes}</div>${canEdit ? `<div class="stat-buttons"><button class="stat-btn plus" data-type="spikes" data-delta="1">+1</button><button class="stat-btn minus" data-type="spikes" data-delta="-1">-1</button></div>` : ''}</div>
+            ${canEdit ? `<button class="save-stats-btn" id="saveStatsBtn">💾 Сохранить статистику</button>` : ''}
+            <div class="info-note">${canEdit ? '* Вы можете редактировать фото, дату рождения, рост, пол и статистику. Все изменения синхронизируются.' : '* Войдите под своим логином или как глава клуба для редактирования.'}</div>
+        `;
+        
+        if (canEdit) {
+            const uploadBtn = document.getElementById('uploadPhotoBtn');
+            const photoInput = document.getElementById('photoInput');
+            if (uploadBtn && photoInput) {
+                uploadBtn.onclick = () => photoInput.click();
+                photoInput.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = async function(ev) {
+                            allProfiles[player.id] = { ...allProfiles[player.id], avatar: ev.target.result };
+                            await saveProfiles(allProfiles);
+                            renderFullProfile(player, canEdit, isAdmin, isOwner);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                };
+            }
+            
+            document.querySelectorAll('.edit-personal-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const field = btn.getAttribute('data-field');
+                    if (field === 'birthDate') {
+                        let newVal = prompt('Введите дату рождения в формате ДД.ММ.ГГГГ (например, 15.06.1995):', profile.birthDate || '');
+                        if (newVal && newVal.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
+                            const age = calculateAgeFromDMY(newVal);
+                            const ageString = age !== null ? age + ' лет' : '—';
+                            allProfiles[player.id] = { ...allProfiles[player.id], birthDate: newVal, age: ageString };
+                            await saveProfiles(allProfiles);
+                            renderFullProfile(player, canEdit, isAdmin, isOwner);
+                        } else if (newVal) {
+                            alert('Неверный формат. Используйте ДД.ММ.ГГГГ, например: 15.06.1995');
+                        }
+                    } else if (field === 'height') {
+                        let newHeight = prompt('Введите рост в сантиметрах (только цифры):', profile.height || '');
+                        if (newHeight && !isNaN(parseInt(newHeight))) {
+                            allProfiles[player.id] = { ...allProfiles[player.id], height: parseInt(newHeight) };
+                            await saveProfiles(allProfiles);
+                            renderFullProfile(player, canEdit, isAdmin, isOwner);
+                        } else if (newHeight) alert('Введите число');
+                    } else if (field === 'gender') {
+                        const genderHtml = `
+                            <select id="genderSelect" class="edit-select">
+                                <option value="">Не указан</option>
+                                <option value="male" ${profile.gender === 'male' ? 'selected' : ''}>♂ Мужской</option>
+                                <option value="female" ${profile.gender === 'female' ? 'selected' : ''}>♀ Женский</option>
+                            </select>
+                            <button id="saveGenderBtn" style="margin-top:5px; padding:4px 12px; border-radius:20px; background:#ffb347; border:none; cursor:pointer;">Сохранить</button>
+                        `;
+                        const genderDiv = document.getElementById('genderText');
+                        const parent = genderDiv.parentElement;
+                        const oldBtn = parent.querySelector('.edit-personal-btn');
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = genderHtml;
+                        parent.insertBefore(tempDiv, oldBtn);
+                        oldBtn.style.display = 'none';
+                        const saveBtn = document.getElementById('saveGenderBtn');
+                        if (saveBtn) {
+                            saveBtn.onclick = async () => {
+                                const selected = document.getElementById('genderSelect').value;
+                                allProfiles[player.id] = { ...allProfiles[player.id], gender: selected };
+                                await saveProfiles(allProfiles);
+                                renderFullProfile(player, canEdit, isAdmin, isOwner);
+                            };
+                        }
+                    }
+                });
+            });
+        }
+        
+        if (canEdit) {
+            let serves = stats.serves, passes = stats.passes, receives = stats.receives, spikes = stats.spikes;
+            const updateStatDisplays = () => {
+                const servesEl = document.getElementById('servesVal');
+                const passesEl = document.getElementById('passesVal');
+                const receivesEl = document.getElementById('receivesVal');
+                const spikesEl = document.getElementById('spikesVal');
+                if (servesEl) servesEl.innerText = serves;
+                if (passesEl) passesEl.innerText = passes;
+                if (receivesEl) receivesEl.innerText = receives;
+                if (spikesEl) spikesEl.innerText = spikes;
+            };
+            document.querySelectorAll('.stat-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const type = btn.getAttribute('data-type');
+                    const delta = parseInt(btn.getAttribute('data-delta'), 10);
+                    if (type === 'serves') serves = Math.max(0, serves + delta);
+                    else if (type === 'passes') passes = Math.max(0, passes + delta);
+                    else if (type === 'receives') receives = Math.max(0, receives + delta);
+                    else if (type === 'spikes') spikes = Math.max(0, spikes + delta);
+                    updateStatDisplays();
+                });
+            });
+            const saveBtn = document.getElementById('saveStatsBtn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', async () => {
+                    const newStats = { ...allStats };
+                    newStats[player.id] = { serves, passes, receives, spikes };
+                    await saveStats(newStats);
+                    if (getActivePageId() === 'rosterPage') showRosterPage();
+                });
+            }
+        }
+    }
+
+    function setActivePage(pageId) {
+        document.getElementById('homePage')?.classList.remove('active-page');
+        document.getElementById('rosterPage')?.classList.remove('active-page');
+        document.getElementById('matchesPage')?.classList.remove('active-page');
+        document.getElementById('statsPage')?.classList.remove('active-page');
+        document.getElementById(pageId)?.classList.add('active-page');
+    }
+    
+    function getActivePageId() {
+        if (document.getElementById('homePage').classList.contains('active-page')) return 'homePage';
+        if (document.getElementById('rosterPage').classList.contains('active-page')) return 'rosterPage';
+        if (document.getElementById('matchesPage').classList.contains('active-page')) return 'matchesPage';
+        return 'statsPage';
+    }
+
+    document.getElementById('openRosterBtn')?.addEventListener('click', () => showRosterPage());
+    document.getElementById('openMatchesBtn')?.addEventListener('click', () => showMatchesPage());
+    document.getElementById('backToHomeFromRoster')?.addEventListener('click', showHomePage);
+    document.getElementById('backToHomeFromMatches')?.addEventListener('click', showHomePage);
+    document.getElementById('backToRosterFromStats')?.addEventListener('click', () => showRosterPage());
+
+    // Запуск
+    if (loadSession()) renderAuthArea();
+    else renderAuthArea();
+    loadAllData();
 </script>
 </body>
 </html>
